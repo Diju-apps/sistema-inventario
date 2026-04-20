@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './views/Dashboard';
 import Inventory from './views/Inventory';
@@ -170,7 +170,7 @@ function App() {
   if (loading) return null;
 
   return (
-    <Router basename="/sistema-inventario">
+    <Router>
       {!user ? (
         <Login onLogin={handleLogin} />
       ) : (
