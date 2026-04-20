@@ -170,7 +170,7 @@ function App() {
   if (loading) return null;
 
   return (
-    <Router>
+    <Router basename="/sistema-inventario">
       {!user ? (
         <Login onLogin={handleLogin} />
       ) : (
