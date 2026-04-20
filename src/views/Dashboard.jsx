@@ -1,18 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Laptop, 
-  CheckCircle, 
-  Wrench, 
-  Trash2, 
-  AlertTriangle,
-  History,
-  TrendingUp,
-  Clock,
-  FileText,
-  X,
-  Check
+  Laptop, CheckCircle, Wrench, Trash2, AlertTriangle, TrendingUp, FileText, X, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getAll, add, update } from '../utils/firebaseUtils';
 
 const StatCard = ({ label, value, icon, color, delay }) => (
   <motion.div 
@@ -36,6 +27,7 @@ const MaintenanceAlerts = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [showOrder, setShowOrder] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     equipment: '',
     type: 'Preventivo',
@@ -45,47 +37,57 @@ const MaintenanceAlerts = () => {
     status: 'Pendiente'
   });
 
-  const loadData = () => {
-    const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-    const assignments = JSON.parse(localStorage.getItem('assignments') || '[]');
-    const maintenance = JSON.parse(localStorage.getItem('maintenance') || '[]');
-    const now = new Date();
-    const sixMonthsInMs = 6 * 30 * 24 * 60 * 60 * 1000;
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [inventory, assignments, maintenance] = await Promise.all([
+        getAll('inventory'),
+        getAll('assignments'),
+        getAll('maintenance')
+      ]);
 
-    const newAlerts = inventory.map(item => {
-      const activeMaint = maintenance.find(m => m.equipment.includes(item.id) && m.status === 'Pendiente');
-      const itemAsgn = assignments
-        .filter(a => a.equipment.includes(item.id))
-        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+      const now = new Date();
+      const sixMonthsInMs = 6 * 30 * 24 * 60 * 60 * 1000;
 
-      const itemMaint = maintenance
-        .filter(m => m.equipment.includes(item.id) && m.status === 'Completado')
-        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+      const newAlerts = inventory.map(item => {
+        const activeMaint = maintenance.find(m => m.equipment.includes(item.id) && m.status === 'Pendiente');
+        const itemAsgn = assignments
+          .filter(a => a.equipment.includes(item.id))
+          .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
-      const assignmentDate = itemAsgn ? new Date(itemAsgn.date) : null;
-      const maintenanceDate = itemMaint ? new Date(itemMaint.date) : null;
-      const creationDate = new Date(item.dateCreated || now);
+        const itemMaint = maintenance
+          .filter(m => m.equipment.includes(item.id) && m.status === 'Completado')
+          .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
-      const lastReferenceDate = [assignmentDate, maintenanceDate, creationDate]
-        .filter(Boolean)
-        .sort((a, b) => b - a)[0];
+        const assignmentDate = itemAsgn ? new Date(itemAsgn.date) : null;
+        const maintenanceDate = itemMaint ? new Date(itemMaint.date) : null;
+        const creationDate = new Date(item.dateCreated || now);
 
-      const diff = now - lastReferenceDate;
-      const needsMaintenance = diff > sixMonthsInMs || activeMaint;
-      
-      if (needsMaintenance && item.status === 'Operativo') {
-        return {
-          id: item.id,
-          equipment: item.description,
-          type: itemAsgn ? 'Preventivo Post-Asignación' : 'Preventivo Sugerido',
-          limitDate: new Date(lastReferenceDate.getTime() + sixMonthsInMs).toLocaleDateString(),
-          activeMaint: activeMaint
-        };
-      }
-      return null;
-    }).filter(Boolean);
+        const lastReferenceDate = [assignmentDate, maintenanceDate, creationDate]
+          .filter(Boolean)
+          .sort((a, b) => b - a)[0];
 
-    setAlerts(newAlerts);
+        const diff = now - lastReferenceDate;
+        const needsMaintenance = diff > sixMonthsInMs || activeMaint;
+        
+        if (needsMaintenance && item.status === 'Operativo') {
+          return {
+            id: item.id,
+            equipment: item.description,
+            type: itemAsgn ? 'Preventivo Post-Asignación' : 'Preventivo Sugerido',
+            limitDate: new Date(lastReferenceDate.getTime() + sixMonthsInMs).toLocaleDateString(),
+            activeMaint: activeMaint
+          };
+        }
+        return null;
+      }).filter(Boolean);
+
+      setAlerts(newAlerts);
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -98,21 +100,24 @@ const MaintenanceAlerts = () => {
     setShowModal(true);
   };
 
-  const handleSaveMaint = (e) => {
+  const handleSaveMaint = async (e) => {
     e.preventDefault();
-    const maintenance = JSON.parse(localStorage.getItem('maintenance') || '[]');
-    maintenance.push({ ...formData, id: Date.now() });
-    localStorage.setItem('maintenance', JSON.stringify(maintenance));
-    setShowModal(false);
-    loadData();
+    try {
+      await add('maintenance', { ...formData, dateCreated: new Date().toISOString() });
+      setShowModal(false);
+      loadData();
+    } catch (error) {
+      alert("Error al guardar mantenimiento");
+    }
   };
 
-  const handleMarkDone = (maintId) => {
-    const maintenance = JSON.parse(localStorage.getItem('maintenance') || '[]');
-    localStorage.setItem('maintenance', JSON.stringify(
-      maintenance.map(m => m.id === maintId ? { ...m, status: 'Completado' } : m)
-    ));
-    loadData();
+  const handleMarkDone = async (maintId) => {
+    try {
+      await update('maintenance', maintId, { status: 'Completado' });
+      loadData();
+    } catch (error) {
+      alert("Error al actualizar mantenimiento");
+    }
   };
 
   const viewOrder = (maint) => {
@@ -234,16 +239,28 @@ const Dashboard = () => {
     maintenance: 0,
     decommissioned: 0
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const inventory = JSON.parse(localStorage.getItem('inventory') || '[]');
-    setStats({
-      total: inventory.length,
-      operative: inventory.filter(i => i.status === 'Operativo').length,
-      maintenance: inventory.filter(i => i.status === 'En Mantenimiento').length,
-      decommissioned: inventory.filter(i => i.status === 'Desincorporado').length
-    });
+    loadStats();
   }, []);
+
+  const loadStats = async () => {
+    try {
+      setLoading(true);
+      const inventory = await getAll('inventory');
+      setStats({
+        total: inventory.length,
+        operative: inventory.filter(i => i.status === 'Operativo').length,
+        maintenance: inventory.filter(i => i.status === 'En Mantenimiento').length,
+        decommissioned: inventory.filter(i => i.status === 'Desincorporado').length
+      });
+    } catch (error) {
+      console.error("Error loading stats:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="animate-fadeIn">
