@@ -10,14 +10,28 @@ import { motion } from 'framer-motion';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+import { getAll } from '../utils/firebaseUtils';
+
 const ReportsView = () => {
   const [inventory, setInventory] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const inv = JSON.parse(localStorage.getItem('inventory') || '[]');
-    setInventory(inv);
+    loadInventory();
   }, []);
+
+  const loadInventory = async () => {
+    try {
+      setLoading(true);
+      const data = await getAll('inventory');
+      setInventory(data);
+    } catch (error) {
+      console.error("Error loading inventory for reports:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const generatePDF = () => {
     try {
@@ -114,6 +128,8 @@ const ReportsView = () => {
     (i.description?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
     (i.id?.toLowerCase() || "").includes(searchTerm.toLowerCase())
   );
+
+  if (loading) return <div className="animate-fadeIn" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Cargando datos del reporte...</div>;
 
   return (
     <div className="animate-fadeIn">
