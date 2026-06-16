@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Laptop, Search, Plus, Filter, Edit, Trash2, Eye, ChevronLeft, ChevronRight, X, Check, Monitor, Server, Printer, Cpu
+  Laptop, Search, Plus, Filter, Edit, Trash2, Eye, ChevronLeft, ChevronRight, X, Check, Monitor, Server, Printer, Cpu, Wrench
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getAll, add, update, remove, set } from '../utils/firebaseUtils';
@@ -12,6 +12,16 @@ const InventoryView = ({ user }) => {
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(null);
   
+  const [showMaintModal, setShowMaintModal] = useState(false);
+  const [maintFormData, setMaintFormData] = useState({
+    equipment: '',
+    type: 'Preventivo',
+    dateAssigned: new Date().toISOString().split('T')[0],
+    dateCompleted: '',
+    technician: '',
+    status: 'Pendiente'
+  });
+
   const [formData, setFormData] = useState({
     description: '',
     brand: '',
@@ -37,6 +47,28 @@ const InventoryView = ({ user }) => {
       console.error("Error loading inventory:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenMaint = (item) => {
+    setMaintFormData({
+      ...maintFormData,
+      equipment: `${item.description} (${item.id})`,
+      dateAssigned: new Date().toISOString().split('T')[0],
+      dateCompleted: '',
+      technician: ''
+    });
+    setShowMaintModal(true);
+  };
+
+  const handleSaveMaint = async (e) => {
+    e.preventDefault();
+    try {
+      await add('maintenance', { ...maintFormData, dateCreated: new Date().toISOString() });
+      setShowMaintModal(false);
+      alert("Mantenimiento asignado correctamente");
+    } catch (error) {
+      alert("Error al guardar mantenimiento: " + error.message);
     }
   };
 
@@ -171,6 +203,7 @@ const InventoryView = ({ user }) => {
                 <td>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button onClick={() => handleEdit(item)} style={{ color: 'var(--text-muted)', padding: '0.25rem' }} title="Editar"><Edit size={18}/></button>
+                    <button onClick={() => handleOpenMaint(item)} style={{ color: '#f59e0b', padding: '0.25rem' }} title="Asignar Mantenimiento"><Wrench size={18}/></button>
                     <button onClick={() => handleDelete(item.id)} style={{ color: 'var(--danger)', padding: '0.25rem' }} title="Eliminar"><Trash2 size={18}/></button>
                   </div>
                 </td>
@@ -245,6 +278,46 @@ const InventoryView = ({ user }) => {
                     Cancelar
                   </button>
                 </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {showMaintModal && (
+          <div className="modal-overlay">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="modal-card" style={{ maxWidth: '400px' }}>
+              <div className="modal-header">
+                <h3>Asignar Mantenimiento</h3>
+                <button onClick={() => setShowMaintModal(false)}><X size={20}/></button>
+              </div>
+              <form onSubmit={handleSaveMaint} className="login-form" style={{ padding: '1.5rem 2rem' }}>
+                <div className="input-group">
+                  <label>Equipo</label>
+                  <input readOnly value={maintFormData.equipment} />
+                </div>
+                <div className="input-group">
+                  <label>Técnico Encargado</label>
+                  <input required placeholder="Nombre del técnico" value={maintFormData.technician} onChange={(e) => setMaintFormData({...maintFormData, technician: e.target.value})} />
+                </div>
+                <div className="input-group">
+                  <label>Tipo de Mantenimiento</label>
+                  <select value={maintFormData.type} onChange={(e) => setMaintFormData({...maintFormData, type: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                    <option value="Preventivo">Preventivo</option>
+                    <option value="Correctivo">Correctivo</option>
+                    <option value="Predictivo">Predictivo</option>
+                  </select>
+                </div>
+                <div className="input-group">
+                  <label>Fecha de Asignación</label>
+                  <input type="date" required value={maintFormData.dateAssigned} onChange={(e) => setMaintFormData({...maintFormData, dateAssigned: e.target.value})} />
+                </div>
+                <div className="input-group">
+                  <label>Fecha Estimada de Cumplimiento</label>
+                  <input type="date" value={maintFormData.dateCompleted} onChange={(e) => setMaintFormData({...maintFormData, dateCompleted: e.target.value})} />
+                </div>
+                <button type="submit" className="login-submit">
+                  Generar Ordenanza <Check size={18}/>
+                </button>
               </form>
             </motion.div>
           </div>

@@ -168,7 +168,7 @@ const MaintenanceAlerts = () => {
   };
 
   return (
-    <div className="table-container" style={{ padding: '0' }}>
+    <div className="table-container" style={{ padding: '0', overflowX: 'auto' }}>
       <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h3 style={{ fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <AlertTriangle color="var(--warning)" size={20} /> Alertas de Mantenimiento
@@ -217,7 +217,7 @@ const MaintenanceAlerts = () => {
                 </span>
               </td>
               <td>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
                   {!alert.activeMaint ? (
                     <button
                       onClick={() => handleOpenAssign(alert)}
