@@ -31,9 +31,9 @@ const MaintenanceAlerts = () => {
   const [formData, setFormData] = useState({
     equipment: '',
     type: 'Preventivo',
-    date: new Date().toISOString().split('T')[0],
+    dateAssigned: new Date().toISOString().split('T')[0],
+    dateCompleted: '',
     technician: '',
-    cost: '',
     status: 'Pendiente'
   });
 
@@ -50,36 +50,77 @@ const MaintenanceAlerts = () => {
       const sixMonthsInMs = 6 * 30 * 24 * 60 * 60 * 1000;
 
       const newAlerts = inventory.map(item => {
-        const activeMaint = maintenance.find(m => m.equipment.includes(item.id) && m.status === 'Pendiente');
-        const itemAsgn = assignments
-          .filter(a => a.equipment.includes(item.id))
-          .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+        // Solo interesan equipos operativos
+        if (item.status !== 'Operativo') return null;
 
-        const itemMaint = maintenance
-          .filter(m => m.equipment.includes(item.id) && m.status === 'Completado')
-          .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+        // Buscar todas las asignaciones de este equipo
+        // El campo equipment se guarda como "Descripción (ID)"
+        const itemAssignments = assignments.filter(a =>
+          a.equipment && (
+            a.equipment.includes(`(${item.id})`) ||
+            a.equipment === item.id ||
+            a.equipment === item.description
+          )
+        );
 
-        const assignmentDate = itemAsgn ? new Date(itemAsgn.date) : null;
-        const maintenanceDate = itemMaint ? new Date(itemMaint.date) : null;
-        const creationDate = new Date(item.dateCreated || now);
+        // Si nunca fue asignado, no aplica la regla de 6 meses
+        if (itemAssignments.length === 0) return null;
 
-        const lastReferenceDate = [assignmentDate, maintenanceDate, creationDate]
-          .filter(Boolean)
-          .sort((a, b) => b - a)[0];
+        // Tomar la asignación más reciente
+        const lastAssignment = itemAssignments.sort(
+          (a, b) => new Date(b.date) - new Date(a.date)
+        )[0];
 
-        const diff = now - lastReferenceDate;
-        const needsMaintenance = diff > sixMonthsInMs || activeMaint;
-        
-        if (needsMaintenance && item.status === 'Operativo') {
-          return {
-            id: item.id,
-            equipment: item.description,
-            type: itemAsgn ? 'Preventivo Post-Asignación' : 'Preventivo Sugerido',
-            limitDate: new Date(lastReferenceDate.getTime() + sixMonthsInMs).toLocaleDateString(),
-            activeMaint: activeMaint
-          };
-        }
-        return null;
+        const assignmentDate = new Date(lastAssignment.date);
+
+        // ¿Cuánto tiempo pasó desde la asignación?
+        const msSinceAssignment = now - assignmentDate;
+
+        // Si no han pasado 6 meses desde la asignación, no hay alerta (aún)
+        if (msSinceAssignment <= sixMonthsInMs) return null;
+
+        // Ver si ya tiene un mantenimiento COMPLETADO después de la asignación
+        const maintAfterAssignment = maintenance.filter(m =>
+          (m.equipment?.includes(`(${item.id})`) ||
+           m.equipment?.includes(item.id)) &&
+          m.status === 'Completado' &&
+          new Date(m.dateCompleted || m.date) >= assignmentDate
+        );
+
+        // Buscar el mantenimiento completado más reciente post-asignación
+        const lastMaint = maintAfterAssignment.sort(
+          (a, b) => new Date(b.dateCompleted || b.date) - new Date(a.dateCompleted || a.date)
+        )[0];
+
+        const referenceDate = lastMaint
+          ? new Date(lastMaint.dateCompleted || lastMaint.date)
+          : assignmentDate;
+
+        const msSinceReference = now - referenceDate;
+
+        // Si desde la última referencia (asignación o último mant.) pasaron 6 meses → alerta
+        if (msSinceReference <= sixMonthsInMs) return null;
+
+        // Verificar si ya hay un mantenimiento PENDIENTE activo
+        const activeMaint = maintenance.find(m =>
+          (m.equipment?.includes(`(${item.id})`) ||
+           m.equipment?.includes(item.id)) &&
+          m.status === 'Pendiente'
+        );
+
+        const limitDate = new Date(referenceDate.getTime() + sixMonthsInMs);
+        const daysOverdue = Math.floor((now - limitDate) / (1000 * 60 * 60 * 24));
+
+        return {
+          id: item.id,
+          equipment: item.description,
+          assignedTo: lastAssignment.employee,
+          assignmentDate: lastAssignment.date,
+          type: lastMaint ? 'Preventivo Periódico' : 'Preventivo Post-Asignación',
+          limitDate: limitDate.toLocaleDateString('es-VE'),
+          daysOverdue,
+          activeMaint: activeMaint || null
+        };
       }).filter(Boolean);
 
       setAlerts(newAlerts);
@@ -96,7 +137,7 @@ const MaintenanceAlerts = () => {
 
   const handleOpenAssign = (alert) => {
     setSelectedAlert(alert);
-    setFormData({ ...formData, equipment: `${alert.equipment} (${alert.id})` });
+    setFormData({ ...formData, equipment: `${alert.equipment} (${alert.id})`, dateAssigned: new Date().toISOString().split('T')[0], dateCompleted: '' });
     setShowModal(true);
   };
 
@@ -113,7 +154,8 @@ const MaintenanceAlerts = () => {
 
   const handleMarkDone = async (maintId) => {
     try {
-      await update('maintenance', maintId, { status: 'Completado' });
+      const completedDate = new Date().toISOString().split('T')[0];
+      await update('maintenance', maintId, { status: 'Completado', dateCompleted: completedDate });
       loadData();
     } catch (error) {
       alert("Error al actualizar mantenimiento");
@@ -136,21 +178,48 @@ const MaintenanceAlerts = () => {
         <thead>
           <tr>
             <th>EQUIPO</th>
+            <th>RESPONSABLE</th>
             <th>MOTIVO</th>
             <th>FECHA LÍMITE</th>
+            <th>DÍAS VENCIDO</th>
             <th>GESTIÓN</th>
           </tr>
         </thead>
         <tbody>
           {alerts.length > 0 ? alerts.map((alert) => (
             <tr key={alert.id}>
-              <td style={{ fontWeight: 600 }}>{alert.equipment}</td>
-              <td style={{ fontSize: '0.75rem' }}>{alert.type}</td>
-              <td>{alert.limitDate}</td>
               <td>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <span style={{ fontWeight: 700, display: 'block' }}>{alert.equipment}</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ID: {alert.id}</span>
+              </td>
+              <td style={{ fontSize: '0.85rem' }}>
+                <span style={{ fontWeight: 600 }}>{alert.assignedTo || '-'}</span>
+                {alert.assignmentDate && (
+                  <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Asignado: {alert.assignmentDate}
+                  </span>
+                )}
+              </td>
+              <td>
+                <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>{alert.type}</span>
+              </td>
+              <td style={{ fontSize: '0.85rem' }}>{alert.limitDate}</td>
+              <td>
+                <span style={{
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  color: alert.daysOverdue > 90 ? '#dc2626' : alert.daysOverdue > 30 ? '#f59e0b' : '#10b981',
+                  background: alert.daysOverdue > 90 ? '#fef2f2' : alert.daysOverdue > 30 ? '#fffbeb' : '#f0fdf4',
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: '4px'
+                }}>
+                  {alert.daysOverdue > 0 ? `+${alert.daysOverdue} días` : 'Hoy'}
+                </span>
+              </td>
+              <td>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   {!alert.activeMaint ? (
-                    <button 
+                    <button
                       onClick={() => handleOpenAssign(alert)}
                       style={{ background: 'var(--primary)', color: 'white', fontSize: '0.7rem', padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-sm)', fontWeight: 700 }}
                     >
@@ -158,13 +227,13 @@ const MaintenanceAlerts = () => {
                     </button>
                   ) : (
                     <>
-                      <button 
+                      <button
                         onClick={() => viewOrder(alert.activeMaint)}
                         style={{ background: '#f1f5f9', color: 'var(--text-main)', fontSize: '0.7rem', padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-sm)', fontWeight: 700, border: '1px solid var(--border)' }}
                       >
                         Ver Ordenanza
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleMarkDone(alert.activeMaint.id)}
                         style={{ background: '#10b981', color: 'white', fontSize: '0.7rem', padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-sm)', fontWeight: 700 }}
                       >
@@ -177,11 +246,14 @@ const MaintenanceAlerts = () => {
             </tr>
           )) : (
             <tr>
-              <td colSpan="4" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No hay alertas activas</td>
+              <td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                ✅ No hay alertas activas — todos los equipos asignados están al día
+              </td>
             </tr>
           )}
         </tbody>
       </table>
+
 
       <AnimatePresence>
         {showModal && (
@@ -201,8 +273,12 @@ const MaintenanceAlerts = () => {
                   <input required placeholder="Nombre del técnico" value={formData.technician} onChange={(e) => setFormData({...formData, technician: e.target.value})} />
                 </div>
                 <div className="input-group">
-                  <label>Costo Estimado ($)</label>
-                  <input type="number" placeholder="0.00" value={formData.cost} onChange={(e) => setFormData({...formData, cost: e.target.value})} />
+                  <label>Fecha de Asignación</label>
+                  <input type="date" required value={formData.dateAssigned} onChange={(e) => setFormData({...formData, dateAssigned: e.target.value})} />
+                </div>
+                <div className="input-group">
+                  <label>Fecha Estimada de Cumplimiento</label>
+                  <input type="date" value={formData.dateCompleted} onChange={(e) => setFormData({...formData, dateCompleted: e.target.value})} />
                 </div>
                 <button type="submit" className="login-submit">
                   Generar Ordenanza <Check size={18}/>
@@ -220,7 +296,8 @@ const MaintenanceAlerts = () => {
               <div style={{ textAlign: 'left', background: '#f8fafc', padding: '1rem', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <p><strong>Equipo:</strong> {selectedAlert.equipment}</p>
                 <p><strong>Técnico:</strong> {selectedAlert.technician}</p>
-                <p><strong>Costo:</strong> ${selectedAlert.cost}</p>
+                <p><strong>Fecha de Asignación:</strong> {selectedAlert.dateAssigned || '-'}</p>
+                <p><strong>Fecha de Cumplimiento:</strong> {selectedAlert.dateCompleted || 'Por definir'}</p>
                 <p><strong>Estado:</strong> <span style={{ color: 'var(--warning)' }}>Pendiente</span></p>
               </div>
               <button onClick={() => setShowOrder(false)} className="login-submit" style={{ marginTop: '1.5rem', background: 'var(--text-main)' }}>Cerrar</button>

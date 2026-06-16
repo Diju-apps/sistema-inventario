@@ -80,25 +80,65 @@ const Topbar = ({ user, onLogout, onOpenProfile, onOpenMigration }) => {
   const [showMenu, setShowMenu] = useState(false);
 
   return (
-    <header style={{ position: 'sticky', top: 0, right: 0, left: 0, background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)', padding: '1rem 2rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', zIndex: 40 }}>
+    <header className="topbar-vintage">
+      <div className="topbar-logo-wrap">
+        <img 
+          src="/sistema-inventario/corpoelec_logo.png" 
+          alt="Logo de la Empresa" 
+          className="topbar-logo-vintage"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+        <div>
+          <div className="topbar-brand-sub">Sistema de Gestión IT</div>
+        </div>
+      </div>
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
         {user?.role === 'admin' && (
           <button 
             onClick={onOpenMigration}
-            style={{ padding: '0.5rem 1rem', background: '#ecfdf5', color: '#059669', border: '1px solid #10b981', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            style={{ 
+              padding: '0.4rem 0.9rem', 
+              background: 'var(--bg-paper)', 
+              color: 'var(--accent)', 
+              border: '1px solid var(--accent)', 
+              fontSize: '0.7rem', 
+              fontWeight: 700, 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.4rem',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              fontFamily: 'monospace'
+            }}
           >
-            <Settings size={14} /> Migrar a Firebase
+            <Settings size={13} /> Migrar a Firebase
           </button>
         )}
-        <div style={{ textAlign: 'right', cursor: 'pointer' }} onClick={() => setShowMenu(!showMenu)}>
-          <p style={{ fontWeight: 700, fontSize: '0.875rem' }}>{user?.name || user?.username}</p>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-            {user?.role === 'admin' ? 'Desarrollador (Admin)' : 'Usuario Normal'}
+        <div style={{ textAlign: 'right', cursor: 'pointer', fontFamily: 'monospace' }} onClick={() => setShowMenu(!showMenu)}>
+          <p style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-main)', letterSpacing: '0.04em' }}>{user?.name || user?.username}</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {user?.role === 'admin' ? 'Administrador' : 'Usuario'}
           </p>
         </div>
         <div 
           onClick={() => setShowMenu(!showMenu)}
-          style={{ width: '40px', height: '40px', background: 'var(--primary)', borderRadius: '50%', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, cursor: 'pointer', transition: 'transform 0.2s' }}
+          style={{ 
+            width: '38px', 
+            height: '38px', 
+            background: 'var(--primary)', 
+            border: '2px solid var(--primary-dark)', 
+            color: 'var(--text-inverse)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            fontWeight: 700, 
+            cursor: 'pointer', 
+            fontFamily: 'serif',
+            fontSize: '1rem' 
+          }}
         >
           {user?.username?.[0].toUpperCase() || 'U'}
         </div>
@@ -110,10 +150,10 @@ const Topbar = ({ user, onLogout, onOpenProfile, onOpenMigration }) => {
             className="profile-dropdown"
           >
             <div className="dropdown-item" onClick={() => { onOpenProfile(); setShowMenu(false); }}>
-              <Settings size={16} /> Configuración de Perfil
+              <Settings size={15} /> Configuración
             </div>
             <div className="dropdown-item danger" onClick={onLogout}>
-              <LogOut size={16} /> Cerrar Sesión
+              <LogOut size={15} /> Cerrar Sesión
             </div>
           </motion.div>
         )}
@@ -121,14 +161,24 @@ const Topbar = ({ user, onLogout, onOpenProfile, onOpenMigration }) => {
         <button 
           onClick={onLogout}
           title="Cerrar Sesión"
-          style={{ marginLeft: '0.5rem', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem', borderRadius: '50%', background: '#fee2e2' }}
+          style={{ 
+            color: 'var(--danger)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            padding: '0.4rem', 
+            border: '1px solid var(--danger)', 
+            background: '#f5e8e8' 
+          }}
         >
-          <LogOut size={20} />
+          <LogOut size={18} />
         </button>
       </div>
     </header>
   );
 };
+
+
 
 function App() {
   const [user, setUser] = useState(null);

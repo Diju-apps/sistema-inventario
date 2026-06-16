@@ -30,6 +30,12 @@ export const update = async (collectionName, id, data) => {
   return { id, ...data };
 };
 
+export const set = async (collectionName, id, data) => {
+  const docRef = doc(db, collectionName, id);
+  await setDoc(docRef, data);
+  return { id, ...data };
+};
+
 export const remove = async (collectionName, id) => {
   const docRef = doc(db, collectionName, id);
   await deleteDoc(docRef);

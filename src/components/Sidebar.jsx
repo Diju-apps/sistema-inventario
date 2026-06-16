@@ -26,14 +26,12 @@ const Sidebar = ({ user }) => {
 
   return (
     <aside className="sidebar">
-      <div className="logo-section">
-        <div className="logo-icon">
-          <Database size={24} />
-        </div>
-        <div className="logo-text">
-          <span>INVENTARIO</span><br/>
-          <span>CORPOELEC</span>
-        </div>
+      <div className="logo-section" style={{ marginBottom: '2rem' }}>
+        <img 
+          src="/sistema-inventario/logo_figura.png" 
+          alt="Logo CORPOELEC" 
+          className="logo-vintage-figura" 
+        />
       </div>
 
       <nav className="sidebar-nav">
@@ -50,9 +48,8 @@ const Sidebar = ({ user }) => {
         ))}
       </nav>
 
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-        <p>© 2026 Corp Tech IT</p>
-        <p>V 1.0.0 Alpha</p>
+      <div className="sidebar-footer">
+        © {new Date().getFullYear()} CORPOELEC
       </div>
     </aside>
   );

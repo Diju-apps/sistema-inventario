@@ -25,9 +25,9 @@ const MaintenanceView = () => {
   const [formData, setFormData] = useState({
     equipment: '',
     type: 'Preventivo',
-    date: new Date().toISOString().split('T')[0],
+    dateAssigned: new Date().toISOString().split('T')[0],
+    dateCompleted: '',
     technician: '',
-    cost: '',
     status: 'Pendiente'
   });
 
@@ -54,9 +54,10 @@ const MaintenanceView = () => {
   const handleComplete = async (id) => {
     try {
       const record = maintenance.find(m => m.id === id);
-      await update('maintenance', id, { ...record, status: 'Completado' });
+      const completedDate = new Date().toISOString().split('T')[0];
+      await update('maintenance', id, { ...record, status: 'Completado', dateCompleted: completedDate });
       setMaintenance(maintenance.map(m => 
-        m.id === id ? { ...m, status: 'Completado' } : m
+        m.id === id ? { ...m, status: 'Completado', dateCompleted: completedDate } : m
       ));
     } catch (error) {
       alert("Error: " + error.message);
@@ -105,9 +106,9 @@ const MaintenanceView = () => {
             <tr>
               <th>EQUIPO / ID</th>
               <th>TIPO</th>
-              <th>FECHA</th>
               <th>TÉCNICO</th>
-              <th>COSTO</th>
+              <th>F. ASIGNACIÓN</th>
+              <th>F. CUMPLIMIENTO</th>
               <th>ESTADO</th>
               <th>ACCIONES</th>
             </tr>
@@ -123,9 +124,9 @@ const MaintenanceView = () => {
                     {record.type}
                   </span>
                 </td>
-                <td><span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Calendar size={14}/> {record.date}</span></td>
                 <td>{record.technician}</td>
-                <td style={{ fontWeight: 600 }}>${record.cost || '0.00'}</td>
+                <td><span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Calendar size={14}/> {record.dateAssigned || record.date || '-'}</span></td>
+                <td><span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Calendar size={14}/> {record.dateCompleted || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Pendiente</span>}</span></td>
                 <td>
                   <span className={`badge ${record.status === 'Completado' ? 'badge-success' : 'badge-warning'}`}>
                     {record.status}

@@ -16,6 +16,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getAll, add, remove } from '../utils/firebaseUtils';
 
 const AssignmentCard = ({ id, employee, area, equipment, date, status, delay, onDelete }) => (
   <motion.div 

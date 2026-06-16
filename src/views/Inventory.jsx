@@ -3,7 +3,7 @@ import {
   Laptop, Search, Plus, Filter, Edit, Trash2, Eye, ChevronLeft, ChevronRight, X, Check, Monitor, Server, Printer, Cpu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getAll, add, update, remove } from '../utils/firebaseUtils';
+import { getAll, add, update, remove, set } from '../utils/firebaseUtils';
 
 const InventoryView = ({ user }) => {
   const [inventory, setInventory] = useState([]);
@@ -51,7 +51,12 @@ const InventoryView = ({ user }) => {
           ...formData,
           dateCreated: new Date().toISOString()
         };
-        const savedItem = await add('inventory', newItemData);
+        let newId = 1;
+        if (inventory.length > 0) {
+          const maxId = Math.max(...inventory.map(item => parseInt(item.id) || 0));
+          newId = maxId > 0 ? maxId + 1 : 1;
+        }
+        const savedItem = await set('inventory', String(newId), newItemData);
         setInventory([...inventory, savedItem]);
       }
       resetForm();
